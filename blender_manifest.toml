@@ -1,0 +1,26 @@
+schema_version = "1.0.0"
+id = "ccustomnodes"
+version = "1.0.0"
+name = "Object Utility Nodes"
+tagline = "Custom nodes in new node editor"
+maintainer = "Christian Coppes"
+type = "add-on"
+tags = ["Node"]
+blender_version_min = "4.2.0"
+
+# website = ""
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+
+[permissions]
+files = "Save colorwheel pictures from/to temp folder"
+
+[build]
+paths_exclude_pattern = [
+   "__pycache__/",
+   "/.git/",
+   "/*.zip",
+   "README.md",
+   ".gitignore",
+]
