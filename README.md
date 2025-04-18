@@ -305,3 +305,14 @@ Creating Extensions for Blender comes with unique challenges, especially when wo
        - After executing you will find the final zip file which you can install in Blender as normal extension.
        - Keep in mind: If you do that, this will be installed to the "user_default" folder and no longer into "vscode_development". If you have installed it in Blender as "normal" extension and you additionally start Blender over VSCode your extension will be registered twice with the same name as it is in two different repositories. This can maybe produce crashes. So better uninstall the "normal" extension after testing the install if you want to go on developing.
        - **Important**: As said above, already inserted nodes using the code as it was when they were inserted to the Blender file. So if you have a newer version of your extension and try to load your Blender file which contains older version it can happen that Blender crashes. You can only open your file again if you at least temporarily uninstall or deactivate the developed extension. Then you can delete the old nodes from the file, save it, reinstall the extension and insert the nodes again. I think this will be not the case if a newer extension version has a new version number, but I didn't test that.
+
+**Sample and Screenshot**
+
+Here is a sample of how the included nodes can be used:
+![Custom Node Example Screenshot](screenshots/NodeSample.png)
+
+If you click and hold the value in the "number" node (the one directly over the left harmony color node, connected to the angle value of the right harmony color node) and move the mouse right or left you change the x/y/z positions of the three objects in the scene at the same time and you also change the angle of the right harmony color node so the effect in this sample is that you can move all three objects at the same time and the closer they get together the more similar looks their color until it's the same.
+
+The Blender file is also now available in the files above.
+
+The sample is of course only to show what you can do with the nodes, it doesn't make any real sense.

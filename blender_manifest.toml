@@ -23,4 +23,6 @@ paths_exclude_pattern = [
    "/*.zip",
    "README.md",
    ".gitignore",
+   "/screenshots/",
+   "CustomNodesSample.blend"
 ]
