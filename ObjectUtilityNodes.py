@@ -57,6 +57,40 @@ def process_tree(node_tree):
         # if all(not input_socket.is_linked for input_socket in node.inputs):
         #     process_node(node)
 
+# # -------------------------------------------------------
+# class CCNMessageOperator(bpy.types.Operator):
+#     bl_idname = "ccn.message"
+#     bl_label = "Message"
+
+#     message: bpy.props.StringProperty() # type: ignore
+
+#     def execute(self, context):
+#         self.report({'INFO'}, self.message)
+#         return {'FINISHED'}
+    
+#     def invoke(self, context, event):
+#         wm = context.window_manager
+#         return wm.invoke_props_dialog(self)    
+
+# # -------------------------------------------------------
+# class CCNSimplePopupOperator(bpy.types.Operator):
+#     bl_idname = "ccn.simple_popup"
+#     bl_label = "Info Popup"
+
+#     message: bpy.props.StringProperty() # type: ignore
+
+#     def execute(self, context):
+#         return {'FINISHED'}
+
+#     def invoke(self, context, event):
+#         def draw(self, context):
+#             layout = self.layout
+#             layout.label(text=self.message)
+
+#         self.draw = draw
+#         context.window_manager.invoke_popup(self, width=600)
+#         return {'RUNNING_MODAL'}
+
 # -------------------------------------------------------
 class CCNUpdateNode(Node):
     '''A node that refreshes the Node-Tree on button click'''
@@ -80,7 +114,7 @@ class CCNRefreshOperator(Operator):
 
     def execute(self, context):
         update_callback(self, bpy.context)
-        self.report({'INFO'}, "Node-Tree refreshed")
+        #self.report({'INFO'}, "Node-Tree refreshed")
         return {'FINISHED'}
 
 # -------------------------------------------------------
@@ -130,14 +164,7 @@ class CCNObjectSelectorNode(Node):
     def draw_buttons(self, context, layout):
         layout.prop(self, "selected_object", text="Select Object")
         # show output values
-        if self.selected_object:
-            layout.label(text=f"X Location: {self.outputs['X Location'].default_value:.2f}")
-            layout.label(text=f"Y Location: {self.outputs['Y Location'].default_value:.2f}")
-            layout.label(text=f"Z Location: {self.outputs['Z Location'].default_value:.2f}")
-            layout.label(text=f"X Dimension: {self.outputs['X Dimension'].default_value:.2f}")
-            layout.label(text=f"Y Dimension: {self.outputs['Y Dimension'].default_value:.2f}")
-            layout.label(text=f"Z Dimension: {self.outputs['Z Dimension'].default_value:.2f}")
-        else:
+        if not self.selected_object:
             layout.label(text="No object selected")
 
 # -------------------------------------------------------
@@ -241,26 +268,6 @@ class CCNObjectTargetNode(Node):
     def draw_buttons(self, context, layout):
         layout.prop(self, "selected_object", text="Select Object")
 
-        layout.label(text="Location Values:")
-        for axis in ["X", "Y", "Z"]:
-            socket = self.inputs[f"{axis} Location"]
-            if socket.is_linked:
-                linked_socket = socket.links[0].from_socket
-                value = linked_socket.default_value
-            else:
-                value = socket.default_value
-            layout.label(text=f"{axis} Location: {value:.2f}")
-
-        layout.label(text="Dimension Values:")
-        for axis in ["X", "Y", "Z"]:
-            socket = self.inputs[f"{axis} Dimension"]
-            if socket.is_linked:
-                linked_socket = socket.links[0].from_socket
-                value = linked_socket.default_value
-            else:
-                value = socket.default_value
-            layout.label(text=f"{axis} Dimension: {value:.2f}")
-
 # -------------------------------------------------------
 
 class CCNCustomFloatSocket(NodeSocket):
@@ -284,25 +291,28 @@ class CCNCustomFloatSocket(NodeSocket):
             if self.node and hasattr(self.node, "update"):            
                 self.node.update()
         finally:
-            CCNCustomFloatSocket._is_updating = False
+            CCNCustomFloatSocket._is_updating = False    
 
     def draw(self, context, layout, node, text):
-        is_output_socket = False
-        socket_value = self.default_value
-        
-        for output_socket in self.node.outputs:
-            if output_socket == self:
-                is_output_socket = True
-                break
+        is_output_socket = any(self == sock for sock in self.node.outputs)
+        is_input_socket = any(self == sock for sock in self.node.inputs)
 
         if self.is_linked:
-            if not is_output_socket:
-                for input_socket in self.node.inputs:
-                    if input_socket == self:
-                        socket_value = input_socket.links[0].from_socket.default_value
-                        break
-        
-        layout.label(text=f"{text}: {socket_value:.2f}")        
+            # If linked, only show the current value
+            linked_value = None
+            if is_input_socket:
+                from_socket = self.links[0].from_socket
+                if hasattr(from_socket, "default_value"):
+                    linked_value = from_socket.default_value
+            label_text = f"{text}: {linked_value:.2f}" if linked_value is not None else f"{text}"
+            layout.label(text=label_text)
+        else:
+            if is_output_socket:
+                # outputs are read-only
+                layout.label(text=f"{text}: {self.default_value:.2f}")
+            else:
+                # inputs without links are changeable
+                layout.prop(self, "default_value", text = text)
 
     def draw_color(self, context, node):
         return (0.5, 0.7, 1.0, 1.0)  # Farbcode für Float-Sockets
@@ -319,7 +329,7 @@ class CCNNumberNode(Node):
                                    ,update = update_callback)
 
     def init(self, context):
-        self.outputs.new('NodeSocketFloat', "Number Output")
+        self.outputs.new('CCNCustomFloatSocket', "Number Output")
 
     @classmethod
     def poll(cls, context):
@@ -494,11 +504,19 @@ class CCNOutputNode(Node):
         self.color = (0.2, 0.6, 1.0)
         self.inputs.new('NodeSocketColor', "Label Color")
         self.inputs.new('NodeSocketColor', "Value Color")
-        self.inputs.new('NodeSocketFloat', "Input")
+        self.inputs.new('CCNCustomFloatSocket', "Input")
+        self.inputs.new('CCNCustomFloatSocket', "X Pos")
+        self.inputs.new('CCNCustomFloatSocket', "Y Pos")
+        self.inputs.new('CCNCustomFloatSocket', "Z Pos")
+        self.inputs.new('CCNCustomFloatSocket', "X Offset")
+        self.inputs.new('CCNCustomFloatSocket', "Y Offset")
+        self.inputs.new('CCNCustomFloatSocket', "Z Offset")
+        
 
     def assign_material_to_text(self, obj, color):
         # check if the material already exists
-        mat_name = f"Material_{obj.name}"
+        mat_name = f"{self.name}_{obj.name}_Material"
+
         if mat_name not in bpy.data.materials:
             mat = bpy.data.materials.new(name=mat_name)
             mat.use_nodes = True
@@ -516,56 +534,80 @@ class CCNOutputNode(Node):
 
         mat.node_tree.update_tag()
 
+    def get_input_value(self, name):
+        if name in self.inputs and self.inputs[name].is_linked:
+            return self.inputs[name].links[0].from_socket.default_value
+        elif name in self.inputs:
+            return self.inputs[name].default_value
+        return 0.0
+
     def update(self):
-        # check if inputs are available and set standard values
-        if self.inputs[0].is_linked:
-            self.label_color = self.inputs[0].links[0].from_socket.default_value
-        else:
-            self.label_color = self.inputs[0].default_value  # Manual input value
+        label_text = self.label.strip() or "Result"
 
-        if self.inputs[1].is_linked:
-            self.value_color_property = self.inputs[1].links[0].from_socket.default_value
-        else:
-            self.value_color_property = self.inputs[1].default_value  # Manual input value
-            
-        # get the input value from the socket
-        if self.inputs[2].is_linked:
-            result_value = self.inputs[2].links[0].from_socket.default_value
-        else:
-            result_value = 0  # Fallback value if no result is connected
+        # get the color values and the value to display either from local or linked socket
+        label_color  = self.inputs[0].links[0].from_socket.default_value if self.inputs[0].is_linked else self.inputs[0].default_value
+        value_color  = self.inputs[1].links[0].from_socket.default_value if self.inputs[1].is_linked else self.inputs[1].default_value
+        result_value = self.inputs[2].links[0].from_socket.default_value if self.inputs[2].is_linked else self.inputs[2].default_value
 
-        # text for result and label
-        label_text = self.label if self.label.strip() else "Result"
-        result_text = f"{result_value:.2f}"
+        x_pos = self.get_input_value("X Pos") + self.get_input_value("X Offset")
+        y_pos = self.get_input_value("Y Pos") + self.get_input_value("Y Offset")
+        z_pos = self.get_input_value("Z Pos") + self.get_input_value("Z Offset")
 
-        # Create or modify the label text object
-        if "LabelText" not in bpy.data.objects:
-            bpy.ops.object.text_add(location=(10, 0, 0))
+        # === PARENT-EMPTY (Container for both texts)
+        parent_name = f"OutputGroup_{self.name}"
+        if parent_name not in bpy.data.objects:
+            bpy.ops.object.empty_add(type='PLAIN_AXES', location=(0, 0, 0))
+            empty = bpy.context.object
+            empty.empty_display_size = 0.01
+            parent_obj = bpy.context.object
+            parent_obj.name = parent_name
+        else:
+            parent_obj = bpy.data.objects[parent_name]
+
+        if parent_obj:
+            parent_obj.location = (x_pos, y_pos, z_pos)
+
+        # === LABEL-TEXT
+        label_name = f"LabelText_{self.name}"
+        if label_name not in bpy.data.objects:
+            bpy.ops.object.text_add(location=(0, 0, 0))
             label_obj = bpy.context.object
-            label_obj.name = "LabelText"
+            label_obj.name = label_name
+            label_obj.parent = parent_obj
         else:
-            label_obj = bpy.data.objects["LabelText"]
-        label_obj.data.body = label_text
-
-        if label_obj:
-            x_pos = label_obj.location.x + label_obj.dimensions.x + 0.5           
-        else:
-            x_pos = 0.0
-
-        # create or modify the result text
-        if "ResultText" not in bpy.data.objects:
-            bpy.ops.object.text_add(location=(x_pos, 0, 0))
-            result_obj = bpy.context.object
-            result_obj.name = "ResultText"
-        else:
-            result_obj = bpy.data.objects["ResultText"]
-            result_obj.location.x = x_pos
-        result_obj.data.body = result_text
-
-        self.assign_material_to_text(label_obj, self.label_color)
-        self.assign_material_to_text(result_obj, self.value_color_property)
+            label_obj = bpy.data.objects[label_name]
         
+        label_obj.data.body = label_text
+        label_obj.data.align_x = 'LEFT'
+        label_obj.data.align_y = 'BOTTOM'
+        label_obj.location = (0, 0, 0)
+
+        bb = label_obj.bound_box
+        min_x = min([v[0] for v in bb])
+        max_x = max([v[0] for v in bb])
+        label_width_local = max_x - min_x
+
+        # === RESULT-TEXT
+        result_name = f"ResultText_{self.name}"
+        if result_name not in bpy.data.objects:
+            bpy.ops.object.text_add(location=(0, 0, 0))
+            result_obj = bpy.context.object
+            result_obj.name = result_name
+            result_obj.parent = parent_obj
+        else:
+            result_obj = bpy.data.objects[result_name]
+        
+        result_obj.data.body = f"{result_value:.2f}"
+        result_obj.data.align_x = 'LEFT'
+        result_obj.data.align_y = 'BOTTOM'
+        #result_obj.location = (label_obj.dimensions.x + 0.7, 0, 0)
+        result_obj.location = (label_width_local + 0.5, 0, 0)
+
+        self.assign_material_to_text(label_obj, label_color)
+        self.assign_material_to_text(result_obj, value_color)
+
         bpy.context.view_layer.update()
+
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "label", text="Label")
@@ -586,8 +628,8 @@ class CCNColorGeneratorNode(Node):
                                              )
 
     def init(self, context):
-        self.outputs.new('NodeSocketColor', "Color 1")
-        self.outputs.new('NodeSocketColor', "Color 2")
+        self.outputs.new('CCNColorOutputSocket', "Color 1")
+        self.outputs.new('CCNColorOutputSocket', "Color 2")
 
     def calculate_complementary(self, color):
         # Ensure the color has 4 components (RGBA)

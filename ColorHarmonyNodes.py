@@ -23,6 +23,7 @@ LineSegment = Tuple[Point, Point]   # TypeAlias for a line segment (2 x/y coordi
 updating = False
 
 COLORWHEEL_ICONSIZE             = 900
+COLORWHEEL_SCALE                = 10
 MARKER_SIZE                     = 20
 MARKER_LINE_WIDTH               = 3
 MARKER_LINE_COLOR               = (0,0,0)
@@ -352,20 +353,22 @@ def update_dynamic_color_wheel(self, context):  # self, context are needed becau
 #------------------------------------------------------------------------------------------------------------------
 class CCNColorOutputSocket(NodeSocket):
     bl_idname = "CCNColorOutputSocket"
-    bl_label = "Color Output"
+    bl_label = "Color"
 
     default_value: bpy.props.FloatVectorProperty(# type: ignore
-                                                 name="Color"
-                                                ,subtype="COLOR"
-                                                ,size=4
-                                                ,min=0.0
-                                                ,max=1.0
-                                                ,default=(0.3, 0.3, 0.3, 1.0)
-                                                ,update=update_dynamic_color_wheel
+                                                 name = "Color"
+                                                ,subtype = "COLOR"
+                                                ,size = 4
+                                                ,min = 0.0
+                                                ,max = 1.0
+                                                ,default = (0.3, 0.3, 0.3, 1.0)
+                                                ,update = update_dynamic_color_wheel
                                                 )
 
     def draw(self, context, layout, node, text):
         row = layout.row()
+        col = row.column()
+        col.label(text="RGBA")
         col = row.column()
         col.scale_y = 0.6
         col.prop(self, "default_value", text="")  
@@ -374,18 +377,44 @@ class CCNColorOutputSocket(NodeSocket):
         return self.default_value  # return the color of the socket itself
 
 #------------------------------------------------------------------------------------------------------------------
+class CCNColorRGBOutputSocket(NodeSocket):
+    bl_idname = "CCNColorRGBOutputSocket"
+    bl_label = "Color"
+
+    default_value: bpy.props.FloatVectorProperty(# type: ignore
+                                                 name = "Color"
+                                                ,subtype = "COLOR"
+                                                ,size = 3
+                                                ,min = 0.0
+                                                ,max = 1.0
+                                                ,default = (0.3, 0.3, 0.3)
+                                                ,update = update_dynamic_color_wheel
+                                                )
+
+    def draw(self, context, layout, node, text):
+        row = layout.row()
+        col = row.column()
+        col.label(text="RGB")
+        col = row.column()
+        col.scale_y = 0.6
+        col.prop(self, "default_value", text="")  
+
+    def draw_color(self, context, node):
+        return (*self.default_value, 1.0)  # return the color of the socket itself
+
+#------------------------------------------------------------------------------------------------------------------
 class CCNColorInputSocket(NodeSocket):
     bl_idname = "CCNColorInputSocket"
     bl_label = "Color Input"
 
     default_value: bpy.props.FloatVectorProperty( # type: ignore
-                                                 name="Base Color"
-                                                ,subtype="COLOR"
-                                                ,size=4
-                                                ,min=0.0
-                                                ,max=1.0
-                                                ,default=(0.3, 0.3, 0.3, 1.0)
-                                                ,update=lambda self, context: self.call_node_update()
+                                                 name = "Base Color"
+                                                ,subtype = "COLOR"
+                                                ,size = 4
+                                                ,min = 0.0
+                                                ,max = 1.0
+                                                ,default = (0.3, 0.3, 0.3, 1.0)
+                                                ,update = lambda self, context: self.call_node_update()
                                                 )
 
     def call_node_update(self):
@@ -407,11 +436,11 @@ class CCNAngleInputSocket(NodeSocket):
     bl_label = "Float Input"
 
     default_value: bpy.props.FloatProperty( # type: ignore
-                                            name="Angle"
-                                           ,default=30.0
-                                           ,min=0.0 
-                                           ,max=180.0 
-                                           ,update=lambda self, context: self.call_node_update()
+                                            name = "Angle"
+                                           ,default = 30.0
+                                           ,min = 0.0 
+                                           ,max = 180.0 
+                                           ,update = lambda self, context: self.call_node_update()
                                           )
 
     def call_node_update(self):
@@ -441,6 +470,7 @@ class CCNHarmonyColorNode(Node):
     bl_idname = 'CCNHarmonyColorNodeType'
     bl_label = 'Harmony Color'
     bl_icon = 'COLOR'
+    bl_width_default = 300
 
     color_harmony_type: bpy.props.EnumProperty( # type: ignore
                                                name = "",
@@ -454,9 +484,17 @@ class CCNHarmonyColorNode(Node):
                                                     default = ""
                                                    )
 
+    auto_link: bpy.props.BoolProperty( # type: ignore
+                                      name = "",
+                                      description = "If enabled, generated Shader RGB Nodes will be linked to material settings, if available." \
+                                                    "These are ""Base Color"", ""Coat"", ""Emission"", ""Specular""",
+                                      default = False,
+                                      update = update_dynamic_color_wheel
+                                     )
+
     base_color: bpy.props.FloatVectorProperty(#type: ignore
                                               name = '', subtype = 'COLOR_GAMMA', 
-                                              size = 4, min = 0.0, max = 1.0, default = (1.0, 1.0, 1.0, 1.0),
+                                              size = 4, min = 0.0, max = 1.0, default = (1.0, 0.0, 0.0, 1.0),
                                               description = "Only this color can be changed, the other colors will be calculated using " \
                                                             "the selected harmony",
                                               update = update_dynamic_color_wheel
@@ -482,6 +520,9 @@ class CCNHarmonyColorNode(Node):
         for i in range(1,5):
             self.outputs.new("CCNColorOutputSocket", f"Color {i}")
         
+        for i in range(1,5):
+            self.outputs.new("CCNColorRGBOutputSocket", f"ColorRGB {i}")            
+
     def update(self):
         angle_reset = False
         
@@ -518,18 +559,22 @@ class CCNHarmonyColorNode(Node):
         harmony_colors_hsv = get_harmony_colors(self)
 
         # convert the hsv colors back to rgb
-        harmonic_colors_rgb = [hsv_to_rgb(hsv_color) for hsv_color in harmony_colors_hsv] # Umwandlung von HSV nach RGB für alle Harmonie-Farben (EINMAL und NACH den IF-Blöcken!)
+        harmonic_colors_rgb = [hsv_to_rgb(hsv_color) for hsv_color in harmony_colors_hsv]
 
         # Set outputs
         # base color to Color 1 always:
         if f"Color 1" in self.outputs:
             self.outputs[f"Color 1"].default_value = self.base_color
 
+        if f"ColorRGB 1" in self.outputs:
+            self.outputs[f"ColorRGB 1"].default_value = self.base_color[:3]
         for i, color in enumerate(harmonic_colors_rgb):
             # Color 1 is always the base value
             if f"Color {i + 2}" in self.outputs:
                 self.outputs[f"Color {i + 2}"].default_value = color
 
+            if f"ColorRGB {i + 2}" in self.outputs:
+                self.outputs[f"ColorRGB {i + 2}"].default_value = color[:3]
         self.load_color_wheel_icon()
 
     
@@ -544,8 +589,12 @@ class CCNHarmonyColorNode(Node):
             layout.label(text=f"{temp_angle:.2f}° preset angle)")
             layout.label(text=f"Angle setting is active!")
 
-        if self.icon_id != -1:            
-            layout.template_icon(icon_value = self.icon_id, scale = 20)
+        if context.space_data.tree_type == 'ShaderNodeTree':
+            layout.operator("node.generate_harmony_shader", text="Generate Harmony Colors", icon='NODE').node_name = self.name
+            layout.prop(self, "auto_link", text="Auto Link")
+
+        if self.icon_id != -1:
+            layout.template_icon(icon_value = self.icon_id, scale = COLORWHEEL_SCALE)
         else:
             layout.label(text="Icon Color Wheel Image not available!")
 
@@ -626,12 +675,11 @@ class CCNHarmonyColorNode(Node):
             cached_color_wheel_image = image # save color wheel to cache        
         return cached_color_wheel_image
 
-    #----------------------
+    # ---------------------
     def load_color_wheel_icon(self):
         """Generates the harmonic color wheel dynamically using PIL and returns the icon_id."""
         global color_wheel_previews
         global cached_color_wheel_image
-        #global icon_id
         
         icon_key = self.name # Unique key for the dynamic icon
         temp_filepath = os.path.join(tempfile.gettempdir(), f"{self.name}_icon.png")
@@ -640,7 +688,7 @@ class CCNHarmonyColorNode(Node):
         base_image = self.generate_base_color_wheel() 
         image = base_image.copy()
                                   
-        # 2. Draw Harmony Elements (Markers, Lines) using draw_harmony_elements function
+        # 2. Draw Harmony Elements (Markers, Lines) using draw_harmony function
         base_color_rgb_pil     = tuple(int(c * 255) for c in self.base_color) # PIL RGB-Tuple 0 - 255
         base_color_hsv         = rgb_to_hsv(base_color_rgb_pil) # HSV-Tuple 0.0 - 1.0
         dynamic_radius         = get_dynamic_radius(base_color_hsv[1], base_color_hsv[2])
@@ -670,6 +718,222 @@ class CCNHarmonyColorNode(Node):
         self.icon_id = color_wheel_previews[icon_key].icon_id
         return self.icon_id # Icon ID
 
+# ---------------------------------------------------------------------------------------
+class CCN_OT_GenerateHarmonyShader(bpy.types.Operator):
+    """Creates four RGBA shader nodes which are usable as input for the shader editor color values.
+    Auto link to four color values of the material if this option is enabled."""
+    bl_idname = "node.generate_harmony_shader"
+    bl_label = "Generate Harmony Shader Colors"
+
+    node_name: bpy.props.StringProperty() # type: ignore
+    
+    def execute(self, context):
+        node = context.space_data.edit_tree.nodes.get(self.node_name)
+        if not node:
+            self.report({'WARNING'}, f"Node '{self.node_name}' not found.")
+            return {'CANCELLED'}
+
+        mat = bpy.context.object.active_material
+        if not mat or not mat.use_nodes:
+            self.report({'WARNING'}, "No active material with nodes.")
+            return {'CANCELLED'}
+
+        nt = mat.node_tree
+        nodes = nt.nodes
+
+        created_nodes = []
+        y_pos = 400
+
+        frame = None
+        frame_name = f"Frame_{node.name}"
+
+        for n in nodes:
+            if n.type == 'FRAME' and n.name == frame_name:
+                frame = n
+                break
+
+        if not frame:
+            frame = nodes.new(type='NodeFrame')
+            frame.label = node.name
+            frame.name = frame_name
+            frame.location = (-400, y_pos + 100)
+            frame.color = (0.2, 0.5, 1.0) # light blue
+            frame.use_custom_color = True
+
+        for i in range(1, 5):
+            output_name = f"Color {i}"
+            if output_name in node.outputs:
+                color = node.outputs[output_name].default_value
+                node_label = f"{node.name}_Color{i}"
+
+                existing_node = None
+                for n in nodes:
+                    if n.type == 'RGB' and n.label == node_label:
+                        existing_node = n
+                        break
+
+                if existing_node:
+                    rgb_node = existing_node
+                    rgb_node.outputs[0].default_value = color
+                else:
+                    rgb_node = nodes.new(type="ShaderNodeRGB")
+                    rgb_node.location = (-300, y_pos)
+                    rgb_node.outputs[0].default_value = color
+                    rgb_node.label = node_label
+                    rgb_node.width = 180
+                    rgb_node.parent = frame
+                    y_pos -= 180
+
+                created_nodes.append(rgb_node)                
+
+        # Auto-Link if active
+        if getattr(node, "auto_link", False):
+            target_node = None
+            for n in nodes:
+                if n.type == 'BSDF_PRINCIPLED':
+                    target_node = n
+                    break
+
+            if target_node:
+                links = nt.links
+                input_names = ["Base Color", "Specular Tint", "Coat Tint", "Emission Color", ]
+                for rgb_node, input_name in zip(created_nodes, input_names):
+                    if input_name in target_node.inputs:
+                        links.new(rgb_node.outputs[0], target_node.inputs[input_name])
+
+        self.report({'INFO'}, f"{len(created_nodes)} Harmony Shader Colors generated!")        
+        return {'FINISHED'}
+
+
+# ---------------------------------------------------------------------------------------
+class CCN_OT_GenerateMaterials(bpy.types.Operator):
+    bl_idname = "node.generate_materials"
+    bl_label = "Generate & Assign Materials"
+
+    node_name: bpy.props.StringProperty() # type: ignore
+
+    @classmethod
+    def poll(cls, context):
+        return isinstance(context.active_node, CCNAutoShaderGeneratorNode)
+
+    def execute(self, context):
+        node = context.space_data.edit_tree.nodes.get(self.node_name)
+        if not node:
+            self.report({'WARNING'}, f"Node '{self.node_name}' not found.")
+            return {'CANCELLED'}
+
+        generated_names = []
+
+        for i, socket in enumerate(node.inputs):
+            if not isinstance(socket, CCNColorInputSocket):
+                continue
+
+            if socket.is_linked:
+                from_socket = socket.links[0].from_socket
+                color = getattr(from_socket, "default_value", (0.0, 0.0, 0.0, 1.0))
+            else:
+                color = socket.default_value
+
+            mat_name = f"CCNMat_{node.name}_{i+1}"
+            mat = bpy.data.materials.get(mat_name)
+            if not mat:
+                mat = bpy.data.materials.new(name = mat_name)
+                mat.use_nodes = True
+
+            bsdf = mat.node_tree.nodes.get("Principled BSDF")
+            if bsdf:
+                if len(color) == 3:
+                    color = (*color, 1.0)   # add alpha value if the color is RGB instead of RGBA
+                bsdf.inputs["Base Color"].default_value = color
+
+            generated_names.append(mat_name)
+
+            # assign the material
+            target_obj = getattr(node, f"obj{i+1}", None)
+            if target_obj and target_obj.type == 'MESH':
+                if mat.name not in target_obj.data.materials:
+                    target_obj.data.materials.append(mat)
+                target_obj.active_material = mat
+
+        node.update_material_names(generated_names)
+        self.report({'INFO'}, f"{len(generated_names)} Materials generated and assigned.")
+        return {'FINISHED'}
+
+
+
+# ---------------------------------------------------------------------------------------
+class CCNAutoShaderGeneratorNode(Node):
+    '''Node to create up to four materials from the input colors and assign it to selected objects'''
+    bl_idname = "CCNAutoShaderGeneratorNodeType"
+    bl_label = "Auto Shader Generator"
+    bl_icon = "MATERIAL"
+
+    # material names
+    mat1: bpy.props.StringProperty(name="Material 1")     # type: ignore
+    mat2: bpy.props.StringProperty(name="Material 2")     # type: ignore
+    mat3: bpy.props.StringProperty(name="Material 3")     # type: ignore
+    mat4: bpy.props.StringProperty(name="Material 4")     # type: ignore
+
+    # object assignment
+    obj1: bpy.props.PointerProperty(type=bpy.types.Object)     # type: ignore
+    obj2: bpy.props.PointerProperty(type=bpy.types.Object)     # type: ignore
+    obj3: bpy.props.PointerProperty(type=bpy.types.Object)     # type: ignore
+    obj4: bpy.props.PointerProperty(type=bpy.types.Object)     # type: ignore
+
+    def init(self, context):
+        for i in range(4):
+            self.inputs.new("CCNColorInputSocket", f"Color {i+1}")
+
+    def update(self):
+        for i, socket in enumerate(self.inputs):
+            mat_name = f"CCNMat_{self.name}_{i+1}"
+            mat = bpy.data.materials.get(mat_name)
+            
+            if not mat:          
+                continue
+            
+            if socket.is_linked:
+                from_socket = socket.links[0].from_socket
+                color = getattr(from_socket, "default_value", (0.0, 0.0, 0.0, 1.0))
+            else:
+                color = socket.default_value            
+
+            if mat.use_nodes:  # Sicherstellen, dass Nodes aktiviert sind
+                bsdf = mat.node_tree.nodes.get("Principled BSDF")
+                if bsdf:
+                    if len(color) == 3:
+                        color = (*color, 1.0)   # Falls RGB, füge Alpha hinzu
+                    bsdf.inputs["Base Color"].default_value = color
+            
+            # assign the material
+            target_obj = getattr(self, f"obj{i+1}", None)
+            if target_obj and target_obj.type == 'MESH':
+                if mat.name not in target_obj.data.materials:
+                    target_obj.data.materials.append(mat)
+                target_obj.active_material = mat
+
+    def draw_buttons(self, context, layout):
+        layout.operator("node.generate_materials", text="Generate & Assign").node_name = self.name
+        
+        col = layout.column(align=True)
+        col.label(text="Assign To Objects:")
+        col.prop(self, "obj1", text="Object 1")
+        col.prop(self, "obj2", text="Object 2")
+        col.prop(self, "obj3", text="Object 3")
+        col.prop(self, "obj4", text="Object 4")
+
+        col.separator()
+        col.label(text="Materials:")
+        for mat in [self.mat1, self.mat2, self.mat3, self.mat4]:
+            if mat:
+                col.label(text=mat, icon="CHECKMARK")
+            else:
+                col.label(text="Not yet generated!", icon="ERROR")
+
+
+    def update_material_names(self, names):
+        self.mat1, self.mat2, self.mat3, self.mat4 = (names + [""] * 4)[:4]
+        
 # ---------------------------------------------------------------------------------------
 def cleanup_color_wheel_previews():
     global color_wheel_previews
