@@ -1,14 +1,14 @@
 from __future__ import annotations
-import bpy                                          # type: ignore
-from bpy.types import NodeTree, Node, NodeSocket    # type: ignore
-from bpy.utils import register_class                # type: ignore
-from bpy.utils import unregister_class              # type: ignore
-import nodeitems_utils                              # type: ignore
+import bpy                                              # type: ignore
+from bpy.types import NodeTree, Node, NodeSocket        # type: ignore
+from bpy.utils import register_class                    # type: ignore
+from bpy.utils import unregister_class                  # type: ignore
+import nodeitems_utils                                  # type: ignore
 from typing import List  
-from nodeitems_utils import NodeCategory, NodeItem  # type: ignore
+from nodeitems_utils import NodeCategory, NodeItem      # type: ignore
 from nodeitems_utils import register_node_categories    # type: ignore
 from nodeitems_utils import unregister_node_categories  # type: ignore
-from bpy.props import (StringProperty,              # type: ignore
+from bpy.props import (StringProperty,                  # type: ignore
                        BoolProperty,
                        IntProperty,
                        FloatProperty,
@@ -20,9 +20,9 @@ from bpy.props import (StringProperty,              # type: ignore
 # ---------------------------------------------------------------------------------------
 class CCNNodeCategory:
     # ------------------------------------------------
-    def __init__(self, name: str, node_editor: CCNNodeEditor, items = None, force_overwrite: bool = False):
+    def __init__(self, prefix: str, name: str, node_editor: CCNNodeEditor, items = None, force_overwrite: bool = False):
         self.label = name
-        self.identifier = self.get_idname_from_label(name)
+        self.identifier = self.get_idname_from_label(prefix, name)
         self.tree_type = node_editor.bl_idname
         self.force_overwrite = force_overwrite
 
@@ -63,7 +63,7 @@ class CCNNodeCategory:
         self.unregister()
 
         if callable(self.items):
-            current_items = list(self.items(None))  # get the current items list
+            current_items = list(self.items(None))  # get the current items list    # type: ignore  
         else:
             current_items = self.items
 
@@ -80,8 +80,8 @@ class CCNNodeCategory:
 
     # ------------------------------------------------
     @classmethod
-    def get_idname_from_label(cls, label: str) -> str:
-        return f"CCN_CAT_{label.replace(' ', '_').upper()}"
+    def get_idname_from_label(cls, prefix: str, label: str) -> str:
+        return f"CCN_CAT_{prefix + label.replace(' ', '_').upper()}"
 
     # ------------------------------------------------
     def register(self):
@@ -143,7 +143,7 @@ class CCNNodeEditor:
         return f"CCN_NodeEditor{label.replace(' ', '')}NodeTreeType"
     
     # ------------------------------------------------
-    def get_or_create_category(self, category_name):
+    def get_or_create_category(self, prefix, category_name):
         """
         Retrieves an existing category or creates a new one.
         """
@@ -152,19 +152,19 @@ class CCNNodeEditor:
                 return category
 
         # create a new category if it was not found above
-        new_category = CCNNodeCategory(name = category_name,node_editor = self)
+        new_category = CCNNodeCategory(prefix = prefix, name = category_name,node_editor = self)
         self.categories.append(new_category)
         new_category.register()
         return new_category
         
     # ------------------------------------------------
-    def add_categories(self, *category_names: str | List[str], force_overwrite: bool = False) -> List[CCNNodeCategory]:
+    def add_categories(self, prefix: str, *category_names: str | List[str], force_overwrite: bool = False) -> List[CCNNodeCategory]:
         category_list = []
         
         if len(category_names) == 1 and isinstance(category_names[0], list):
-            category_names = category_names[0]  # unpack the list
+            category_names = category_names[0]  # unpack the list       # type: ignore  
 
-        for category_name in category_names:
+        for category_name in category_names: # type: ignore
             existing_category = next((c for c in self.categories if c.label == category_name), None)
             if existing_category:
                 if force_overwrite:
@@ -172,12 +172,12 @@ class CCNNodeEditor:
                     self.categories.remove(existing_category)
                 else:
                     print(f"Warning: Category '{category_name}' already exists.")
-            category_list.append(self.get_or_create_category(category_name))                
+            category_list.append(self.get_or_create_category(prefix, category_name))                
 
         return category_list
 
     # ------------------------------------------------
-    def create_categories_from_dict(self, category_dict: dict[str, list[type[Node]]], force_overwrite: bool = False):
+    def create_categories_from_dict(self, prefix, category_dict: dict[str, list[type[Node]]], force_overwrite: bool = False):
         """
         Creates a list of categories for the "Add" menu and adds the desired nodes to each
         
@@ -186,7 +186,7 @@ class CCNNodeEditor:
         - force_overwrite: specifiy if existing categories should be unregistered first.
         """
         # create category list from the dictionary        
-        category_list = self.add_categories(list(category_dict.keys()), force_overwrite=force_overwrite)
+        category_list = self.add_categories(prefix, list(category_dict.keys()), force_overwrite=force_overwrite)
         
         # add nodes to the categories
         for category in category_list:
@@ -274,7 +274,7 @@ class CCNNodeEditorManager:
             return None
 
     # ------------------------------------------------
-    def get_editor(self, name: str) -> CCNNodeEditor:
+    def get_editor(self, name: str) -> CCNNodeEditor | None:
         """
         Retrieves an editor by its name.
         """

@@ -21,11 +21,13 @@ class CCN_MT_geometry_add_harmony_menu(bpy.types.Menu):
         layout = self.layout
         layout.operator("node.add_node", text="Harmony Color Node").type = "CCNHarmonyColorNodeType"
 # ---------------------------------------------------------------------------------------
-classes = [oun.CCNDynamicInputNode, oun.CCNAddDynamicInputOperator, oun.CCNCustomFloatSocket,
-           oun.CCNNumberNode, oun.CCNNumberOperatorNode, oun.CCNOutputNode,
-           oun.CCNColorGeneratorNode, oun.CCNObjectSelectorNode, oun.CCNUpdateNode,
-           oun.CCNRefreshOperator, oun.CCNObjectTargetNode,
-           chn.CCNColorOutputSocket, chn.CCNColorInputSocket, chn.CCNAngleInputSocket,
+classes = [oun.CCNDynamicInputNode,     oun.CCNAddDynamicInputOperator,
+           oun.CCNCustomFloatSocket,    oun.CCNCustomIntegerSocket,
+           oun.CCNNumberNode,           oun.CCNIntegerNumberNode,
+           oun.CCNNumberOperatorNode,   oun.CCNOutputNode,
+           oun.CCNColorGeneratorNode,   oun.CCNObjectSelectorNode, oun.CCNUpdateNode,
+           oun.CCNRefreshOperator,      oun.CCNObjectTargetNode,
+           chn.CCNColorOutputSocket,    chn.CCNColorInputSocket, chn.CCNAngleInputSocket,
            chn.CCNColorRGBOutputSocket, chn.CCNHarmonyColorNode, chn.CCN_OT_GenerateHarmonyShader,
            CCN_MT_geometry_add_harmony_menu,
            chn.CCNAutoShaderGeneratorNode, chn.CCN_OT_GenerateMaterials]
@@ -46,13 +48,15 @@ def register():
             print(f"{cls.__name__} is already registered, skipping...")
 
     node_manager = ccnu.CCNNodeEditorManager()
-    node_editor  = node_manager.add_editor("Object Utility Nodes", icon="NODETREE", force_overwrite=True)
-    tree_id = node_editor.bl_idname
+    node_editor:ccnu.CCNNodeEditor|None  = node_manager.add_editor("Object Utility Nodes", icon="NODETREE", force_overwrite=True)
+    tree_id = None
+    if node_editor:
+        tree_id = node_editor.bl_idname
     oun.update_tree_id(tree_id)
     
     # create dictionary
     category_dict = {
-        "Math"      : [oun.CCNNumberNode, oun.CCNDynamicInputNode, oun.CCNNumberOperatorNode],
+        "Math"      : [oun.CCNNumberNode, oun.CCNIntegerNumberNode, oun.CCNDynamicInputNode, oun.CCNNumberOperatorNode],
         "Object"    : [oun.CCNObjectSelectorNode, oun.CCNObjectTargetNode],
         "Color"     : [oun.CCNColorGeneratorNode, chn.CCNHarmonyColorNode],
         "Material"  : [chn.CCNAutoShaderGeneratorNode],
@@ -60,10 +64,11 @@ def register():
         "Tools"     : [oun.CCNUpdateNode]
     }
 
-    # create categories and nodes
-    node_editor.create_categories_from_dict(category_dict, force_overwrite=True)   
-    # adds the harmony color node to the standard Shader Editor
-    bpy.types.NODE_MT_add.append(add_harmony_node_menu) 
+    if node_editor:
+        # create categories and nodes
+        node_editor.create_categories_from_dict("CCNU_",category_dict, force_overwrite=True)   
+        # adds the harmony color node to the standard Shader Editor
+        bpy.types.NODE_MT_add.append(add_harmony_node_menu) 
 
 # ------------------------------------------------
 def unregister():

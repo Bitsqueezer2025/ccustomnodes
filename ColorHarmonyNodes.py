@@ -4,6 +4,7 @@ from bpy.types import Node, NodeSocket              # type: ignore
 from typing import List, Tuple
 import colorsys
 import math
+from . import ObjectUtilityNodes as oun
 from PIL import Image, ImageDraw                    # type: ignore
 from enum import Enum
 
@@ -362,9 +363,32 @@ class CCNColorOutputSocket(NodeSocket):
                                                 ,min = 0.0
                                                 ,max = 1.0
                                                 ,default = (0.3, 0.3, 0.3, 1.0)
-                                                ,update = update_dynamic_color_wheel
-                                                )
+                                                ,update = lambda self, context: self.call_node_update(context)
+                                               )
 
+    def call_node_update(self, context):        
+        try:
+            is_output_socket = any(self == sock for sock in self.node.outputs)
+            is_input_socket  = any(self == sock for sock in self.node.inputs)            
+
+            #print(f"Socket 'call_node_update': {self.name}")
+
+            # If OUTPUT: Collect all direct target nodes and update them
+            if is_output_socket:
+                target_nodes = oun.get_all_target_nodes_from_socket(self)
+                for node in target_nodes:
+                    if hasattr(node, 'update'):
+                        #print(f" → Updating target node: {node.name}")
+                        node.update()
+                
+            if is_input_socket:
+                if self.node and hasattr(self.node, "update"):            
+                    self.node.update()
+
+
+        except:
+            pass
+        
     def draw(self, context, layout, node, text):
         row = layout.row()
         col = row.column()
@@ -388,9 +412,32 @@ class CCNColorRGBOutputSocket(NodeSocket):
                                                 ,min = 0.0
                                                 ,max = 1.0
                                                 ,default = (0.3, 0.3, 0.3)
-                                                ,update = update_dynamic_color_wheel
+                                                ,update = lambda self, context: self.call_node_update(context)
                                                 )
 
+    def call_node_update(self, context):        
+        try:
+            is_output_socket = any(self == sock for sock in self.node.outputs)
+            is_input_socket  = any(self == sock for sock in self.node.inputs)            
+
+            #print(f"Socket 'call_node_update': {self.name}")
+
+            # If OUTPUT: Collect all direct target nodes and update them
+            if is_output_socket:
+                target_nodes = oun.get_all_target_nodes_from_socket(self)
+                for node in target_nodes:
+                    if hasattr(node, 'update'):
+                        #print(f" → Updating target node: {node.name}")
+                        node.update()
+                
+            if is_input_socket:
+                if self.node and hasattr(self.node, "update"):            
+                    self.node.update()
+
+
+        except:
+            pass
+        
     def draw(self, context, layout, node, text):
         row = layout.row()
         col = row.column()
@@ -407,6 +454,9 @@ class CCNColorInputSocket(NodeSocket):
     bl_idname = "CCNColorInputSocket"
     bl_label = "Color Input"
 
+    # for checks if the input noodle comes from an allowed value
+    is_invalid_link_type: bpy.props.BoolProperty(default=False) # type: ignore
+    
     default_value: bpy.props.FloatVectorProperty( # type: ignore
                                                  name = "Base Color"
                                                 ,subtype = "COLOR"
@@ -414,18 +464,41 @@ class CCNColorInputSocket(NodeSocket):
                                                 ,min = 0.0
                                                 ,max = 1.0
                                                 ,default = (0.3, 0.3, 0.3, 1.0)
-                                                ,update = lambda self, context: self.call_node_update()
-                                                )
+                                                ,update = lambda self, context: self.call_node_update(context)
+                                          )
 
-    def call_node_update(self):
-        if hasattr(self.node, "update"):
-            self.node.update()
+    def call_node_update(self, context):        
+        try:
+            is_output_socket = any(self == sock for sock in self.node.outputs)
+            is_input_socket  = any(self == sock for sock in self.node.inputs)            
+
+            print(f"Socket 'call_node_update': {self.name}")
+
+            # If OUTPUT: Collect all direct target nodes and update them
+            if is_output_socket:
+                target_nodes = oun.get_all_target_nodes_from_socket(self)
+                for node in target_nodes:
+                    if hasattr(node, 'update'):
+                        print(f" → Updating target node: {node.name}")
+                        node.update()
+                
+            if is_input_socket:
+                if self.node and hasattr(self.node, "update"):            
+                    self.node.update()
+
+
+        except:
+            pass
 
     def draw(self, context, layout, node, text):
         if not self.is_linked:
             layout.prop(self, "default_value", text=text)
         else:
-            layout.label(text=text)
+            if self.is_invalid_link_type:
+                layout.label(text="Invalid Type!", icon='ERROR')
+            else:
+                layout.label(text=text)
+
 
     def draw_color(self, context, node):
         return self.default_value
@@ -435,34 +508,60 @@ class CCNAngleInputSocket(NodeSocket):
     bl_idname = "CCNAngleInputSocket"
     bl_label = "Float Input"
 
+    # for checks if the input noodle comes from an allowed value
+    is_invalid_link_type: bpy.props.BoolProperty(default=False) # type: ignore
+
     default_value: bpy.props.FloatProperty( # type: ignore
                                             name = "Angle"
                                            ,default = 30.0
                                            ,min = 0.0 
                                            ,max = 180.0 
-                                           ,update = lambda self, context: self.call_node_update()
+                                           ,update = lambda self, context: self.call_node_update(context)
                                           )
 
-    def call_node_update(self):
-        if hasattr(self.node, "update"):
-            self.node.update()
+    def call_node_update(self, context):        
+        try:
+            is_output_socket = any(self == sock for sock in self.node.outputs)
+            is_input_socket  = any(self == sock for sock in self.node.inputs)            
+
+            print(f"Socket 'call_node_update': {self.name}")
+
+            # If OUTPUT: Collect all direct target nodes and update them
+            if is_output_socket:
+                target_nodes = oun.get_all_target_nodes_from_socket(self)
+                for node in target_nodes:
+                    if hasattr(node, 'update'):
+                        print(f" → Updating target node: {node.name}")
+                        node.update()
+                
+            if is_input_socket:
+                if self.node and hasattr(self.node, "update"):            
+                    self.node.update()
+
+
+        except:
+            pass
 
     def draw(self, context, layout, node, text):
-        if not self.is_linked:
+        is_output_socket = any(self == sock for sock in self.node.outputs)
+        is_input_socket  = any(self == sock for sock in self.node.inputs)
+
+        if self.is_linked:
+            angle_value = oun.get_socket_value(self)
+#            angle_value = max(1.0, min(180.0, angle_value)) happens in the get_socket_value
+            
+            label_text = f"{text}: {angle_value:.2f}°" if angle_value is not None else f"{text}"
+            if self.is_invalid_link_type:
+                layout.label(text="Invalid Type!", icon='ERROR')
+            else:
+                layout.label(text=text)
+        else:            
             layout.prop(self, "default_value", text=text)
-        else:
-            link = self.links[0]
-            if link:
-                source_socket = link.from_socket
-                if hasattr(source_socket, "default_value"):
-                    angle_value = max(1.0, min(180.0, source_socket.default_value))
-                    layout.label(text=f"{text}: {angle_value:.2f}")
-                else:
-                    layout.label(text=text)            
 
+
+            
     def draw_color(self, context, node):
-        return (0.5, 0.7, 1.0, 1.0)
-
+        return (0.7, 0.7, 0.7, 1)  # Color Code for Float-Sockets
 
 #------------------------------------------------------------------------------------------------------------------    
 class CCNHarmonyColorNode(Node):
@@ -477,7 +576,8 @@ class CCNHarmonyColorNode(Node):
                                                description = "The color harmony which you want to visualize",
                                                items = [(harmony.value, harmony.name.replace('_', ' ').title(), f"{harmony.name.replace('_', ' ').title()} Harmony") for harmony in Harmony], 
                                                default = Harmony.COMPLEMENTARY.value, 
-                                               update = update_dynamic_color_wheel
+                                               #update = update_dynamic_color_wheel
+                                               update = lambda self, context: self.update()
                                               )
     previous_harmony_type: bpy.props.StringProperty( # type: ignore
                                                     name = "Previous Harmony Type",
@@ -489,7 +589,8 @@ class CCNHarmonyColorNode(Node):
                                       description = "If enabled, generated Shader RGB Nodes will be linked to material settings, if available." \
                                                     "These are ""Base Color"", ""Coat"", ""Emission"", ""Specular""",
                                       default = False,
-                                      update = update_dynamic_color_wheel
+                                      #update = update_dynamic_color_wheel
+#                                      update = lambda self, context: self.update()
                                      )
 
     base_color: bpy.props.FloatVectorProperty(#type: ignore
@@ -497,7 +598,8 @@ class CCNHarmonyColorNode(Node):
                                               size = 4, min = 0.0, max = 1.0, default = (1.0, 0.0, 0.0, 1.0),
                                               description = "Only this color can be changed, the other colors will be calculated using " \
                                                             "the selected harmony",
-                                              update = update_dynamic_color_wheel
+                                              #update = update_dynamic_color_wheel
+#                                              update = lambda self, context: self.update()
                                              )
 
     angle: bpy.props.FloatProperty(# type: ignore
@@ -505,7 +607,8 @@ class CCNHarmonyColorNode(Node):
                                    min=1.0, max=180.0,
                                    default=30.0,
                                    description="Angle for color harmony",
-                                   update = update_dynamic_color_wheel                                              
+                                   #update = update_dynamic_color_wheel
+#                                   update = lambda self, context: self.update()
                                   )
     
     icon_id: bpy.props.IntProperty(default=-1)  # type: ignore
@@ -524,6 +627,10 @@ class CCNHarmonyColorNode(Node):
             self.outputs.new("CCNColorRGBOutputSocket", f"ColorRGB {i}")            
 
     def update(self):
+        if self.mute:
+            oun.handle_muted_node(self)
+            return          
+        
         angle_reset = False
         
         harmony_type = self.color_harmony_type
@@ -533,27 +640,37 @@ class CCNHarmonyColorNode(Node):
             self.previous_harmony_type = harmony_type        
         
         # update the harmonic colors
-        if self.inputs["Angle"].is_linked:
-            # get the value from the linked node
-            link = self.inputs["Angle"].links[0]  # get the connection
-            source_socket = link.from_socket      # get the source socket
-
-            # try to get the right value from the source node
-            if hasattr(source_socket, "default_value"):
-                self.angle = max(1.0, min(180.0, source_socket.default_value))
+        angle_socket = self.inputs["Angle"]
+        if angle_socket.is_linked:
+            
+            angle = oun.get_socket_value(angle_socket)
+            if not isinstance(angle, (float, int)):
+                angle_socket.is_invalid_link_type = True
+                self.report({'WARNING'}, "Angle input expects a Float or Integer value.")
+            else:
+                angle_socket.is_invalid_link_type = False
+                self.angle = max(1.0, min(180.0, float(angle)))            
         else:
             if not angle_reset:
-                self.angle = self.inputs["Angle"].default_value
+                self.angle = angle_socket.default_value
+        
+        base_color_socket = self.inputs["Base Color"]
+        if base_color_socket.is_linked:
+            base_color = oun.get_socket_value(base_color_socket)
+            
+            if not isinstance(base_color, tuple) or not (len(base_color) == 3 or len(base_color) == 4):
+                base_color_socket.is_invalid_link_type = True
+                #self.report({'WARNING'}, "Base Color input expects a Color (RGB/RGBA) value.")
+            else:
+                base_color_socket.is_invalid_link_type = False
+                if len(base_color) == 3:
+                    base_color = (*base_color, 1.0) # add 1 as alpha if the color has only 3 values
+            
+                self.base_color = base_color
                 
-        if self.inputs["Base Color"].is_linked:
-            link = self.inputs["Base Color"].links[0]
-            source_socket = link.from_socket
-            #source_node = link.from_node
-
-            if hasattr(source_socket, "default_value"):
-                self.base_color = source_socket.default_value
         else:                
-            self.base_color = self.inputs["Base Color"].default_value
+            base_color_socket.is_invalid_link_type = False
+            self.base_color = base_color_socket.default_value
 
         harmonic_colors_rgb = [] # list of harmonic colors
         harmony_colors_hsv = get_harmony_colors(self)
@@ -601,7 +718,7 @@ class CCNHarmonyColorNode(Node):
     #----------------------
     def generate_base_color_wheel(self):
         """Generates and returns the base color wheel without harmony elements."""
-        global cached_color_wheel_image  # Zugriff auf die globale Variable für den Cache
+        global cached_color_wheel_image  # Access to the global variable for caching
 
         if cached_color_wheel_image is None:
             width, height = COLORWHEEL_ICONSIZE, COLORWHEEL_ICONSIZE
@@ -885,9 +1002,17 @@ class CCNAutoShaderGeneratorNode(Node):
             self.inputs.new("CCNColorInputSocket", f"Color {i+1}")
 
     def update(self):
+        if self.mute:
+            oun.handle_muted_node(self)
+            return  
+                
         for i, socket in enumerate(self.inputs):
             mat_name = f"CCNMat_{self.name}_{i+1}"
-            mat = bpy.data.materials.get(mat_name)
+            mat = None
+            try:
+                mat = bpy.data.materials.get(mat_name)
+            except:
+                pass
             
             if not mat:          
                 continue
