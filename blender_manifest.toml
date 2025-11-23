@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "ccustomnodes"
-version = "1.0.2"
+version = "1.0.3"
 name = "Object Utility Nodes"
 tagline = "Custom nodes in new node editor"
 maintainer = "Christian Coppes"

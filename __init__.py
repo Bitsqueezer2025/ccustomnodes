@@ -3,6 +3,7 @@ import bpy                                          # type: ignore
 from bpy.utils import register_class                # type: ignore
 from bpy.utils import unregister_class              # type: ignore
 import nodeitems_utils                              # type: ignore
+import bpy.utils.previews                           # type: ignore
 
 # Import modules
 from . import ccn_utils           as ccnu \
